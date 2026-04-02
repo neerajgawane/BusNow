@@ -19,7 +19,20 @@ class AuthProvider extends ChangeNotifier {
     return false;
   }
 
+  Future<bool> register(String name, String phone, String password) async {
+    final data = await ApiClient.register(name, phone, password);
+    return data['success'] == true;
+  }
+
   String get role => user?['role'] ?? '';
   int get busId => user?['bus_id'] ?? 0;
   bool get isConductor => role == 'conductor';
+  int get xp => user?['xp'] ?? 0;
+
+  void addXp(int amount) {
+    if (user != null) {
+      user!['xp'] = (user!['xp'] ?? 0) + amount;
+      notifyListeners();
+    }
+  }
 }

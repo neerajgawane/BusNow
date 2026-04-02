@@ -32,12 +32,18 @@ router.post('/login', async (req, res) => {
 
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
-  const { name, phone, password, role, bus_id, route_id } = req.body;
+  const { name, phone, password } = req.body;
+  
+  // Hackathon Trick: Automatically assign the 'conductor' role and Bus 21C if the user is named "Conductor Raj" or contains "Conductor"
+  const determinedRole = name.toLowerCase().includes('conductor') ? 'conductor' : 'passenger';
+  const determinedBusId = determinedRole === 'conductor' ? 1 : null; 
+  const determinedRouteId = determinedRole === 'conductor' ? 1 : null;
+  
   try {
     const hash = await bcrypt.hash(password, 10);
     const result = await db.query(
       'INSERT INTO users (name, phone, password_hash, role, bus_id, route_id) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, name, role',
-      [name, phone, hash, role, bus_id || null, route_id || null]
+      [name, phone, hash, determinedRole, determinedBusId, determinedRouteId]
     );
     res.json({ success: true, user: result.rows[0] });
   } catch (err) {

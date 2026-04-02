@@ -27,6 +27,24 @@ class ApiClient {
     return jsonDecode(res.body);
   }
 
+  static Future<Map<String, dynamic>> register(
+    String name,
+    String phone,
+    String password,
+  ) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/api/auth/register'),
+      headers: _headers,
+      body: jsonEncode({
+        'name': name,
+        'phone': phone,
+        'password': password,
+        'role': 'passenger',
+      }),
+    );
+    return jsonDecode(res.body);
+  }
+
   // Conductor: Update crowd level
   static Future<void> updateCrowd(
     int busId,

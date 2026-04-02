@@ -1,45 +1,40 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/auth_provider.dart';
-import 'conductor/conductor_dashboard.dart';
-import 'passenger/stop_selector.dart';
-import 'register_screen.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class RegisterScreen extends StatefulWidget {
+  const RegisterScreen({super.key});
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _RegisterScreenState extends State<RegisterScreen> {
+  final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   bool _loading = false;
   String? _error;
 
-  Future<void> _login() async {
+  Future<void> _register() async {
     setState(() {
       _loading = true;
       _error = null;
     });
     final auth = context.read<AuthProvider>();
-    final success = await auth.login(
+    final success = await auth.register(
+      _nameCtrl.text.trim(),
       _phoneCtrl.text.trim(),
       _passCtrl.text.trim(),
     );
     setState(() => _loading = false);
 
     if (success && mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => auth.isConductor
-              ? const ConductorDashboard()
-              : const StopSelector(),
-        ),
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Registration successful! Please login.')),
       );
+      Navigator.pop(context); // Go back to login screen
     } else {
-      setState(() => _error = 'Invalid phone or password');
+      setState(() => _error = 'Registration failed. Try again.');
     }
   }
 
@@ -47,6 +42,11 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF1565C0),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: const BackButton(color: Colors.white),
+      ),
       body: Center(
         child: SingleChildScrollView(
           child: Card(
@@ -60,24 +60,29 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Icon(
-                    Icons.directions_bus_rounded,
-                    size: 72,
+                    Icons.person_add_rounded,
+                    size: 64,
                     color: Color(0xFF1565C0),
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'BusNow',
+                    'Create Account',
                     style: TextStyle(
-                      fontSize: 32,
+                      fontSize: 28,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF1565C0),
                     ),
                   ),
-                  const Text(
-                    'Real-time bus crowding',
-                    style: TextStyle(color: Colors.grey),
-                  ),
                   const SizedBox(height: 28),
+                  TextField(
+                    controller: _nameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Full Name',
+                      prefixIcon: Icon(Icons.person),
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
                   TextField(
                     controller: _phoneCtrl,
                     decoration: const InputDecoration(
@@ -105,7 +110,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: _loading ? null : _login,
+                      onPressed: _loading ? null : _register,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF1565C0),
                         foregroundColor: Colors.white,
@@ -116,20 +121,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       child: _loading
                           ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text('Login', style: TextStyle(fontSize: 16)),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const RegisterScreen()),
-                      );
-                    },
-                    child: const Text(
-                      "Don't have an account? Sign Up",
-                      style: TextStyle(color: Color(0xFF1565C0)),
+                          : const Text('Sign Up', style: TextStyle(fontSize: 16)),
                     ),
                   ),
                 ],
