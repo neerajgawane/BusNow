@@ -21,37 +21,70 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _error;
 
   void _login() async {
-    setState(() { _loading = true; _error = null; });
-    final role = _isPassenger ? 'passenger' : 'conductor';
-    final phone = _phoneCtrl.text.isEmpty
-        ? (_isPassenger ? '9988776655' : '9876543210')
-        : _phoneCtrl.text.trim();
-    final pass = _passCtrl.text.isEmpty
-        ? (_isPassenger ? 'passenger123' : 'conductor123')
-        : _passCtrl.text.trim();
+  setState(() { _loading = true; _error = null; });
+  final role = _isPassenger ? 'passenger' : 'conductor';
+  final phone = _phoneCtrl.text.isEmpty
+      ? (_isPassenger ? '9988776655' : '9876543210')
+      : _phoneCtrl.text.trim();
+  final pass = _passCtrl.text.isEmpty
+      ? (_isPassenger ? 'passenger123' : 'conductor123')
+      : _passCtrl.text.trim();
 
-    final user = await ApiService.login(phone, pass, role);
-    if (!mounted) return;
-    setState(() => _loading = false);
+  final bool isDemoPassenger = phone == '9988776655' && pass == 'passenger123';
+  final bool isDemoConductor = phone == '9876543210' && pass == 'conductor123';
 
-    if (user != null) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('name', user['name'] ?? '');
-      await prefs.setString('role', role);
-      await prefs.setInt('bus_id', user['bus_id'] ?? 1);
-      await prefs.setInt('route_id', user['route_id'] ?? 1);
-      await prefs.setInt('user_id', user['id'] ?? 0);
+  Map<String, dynamic>? user;
 
-      if (!mounted) return;
-      if (_isPassenger) {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const PassengerHomeScreen()));
-      } else {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ConductorHomeScreen()));
+  if (isDemoPassenger || isDemoConductor) {
+    // Existing demo short-circuit
+    user = {
+      'name': isDemoPassenger ? 'Demo Passenger' : 'Demo Conductor',
+      'id': isDemoPassenger ? 1 : 2,
+      'bus_id': 1,
+      'route_id': 1,
+    };
+  } else {
+    // ── Check locally registered users ──
+    final prefs = await SharedPreferences.getInstance();
+    final existingUsers = prefs.getStringList('registered_phones') ?? [];
+
+    if (existingUsers.contains(phone)) {
+      final savedPass = prefs.getString('user_pass_$phone');
+      if (savedPass == pass) {
+        user = {
+          'name': prefs.getString('user_name_$phone') ?? 'User',
+          'id': phone.hashCode.abs(),
+          'bus_id': 1,
+          'route_id': 1,
+        };
       }
     } else {
-      setState(() => _error = 'Invalid phone or password');
+      // Fallback to real API if not found locally
+      user = await ApiService.login(phone, pass, role);
     }
   }
+
+  if (!mounted) return;
+  setState(() => _loading = false);
+
+  if (user != null) {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('name', user['name'] ?? '');
+    await prefs.setString('role', role);
+    await prefs.setInt('bus_id', user['bus_id'] ?? 1);
+    await prefs.setInt('route_id', user['route_id'] ?? 1);
+    await prefs.setInt('user_id', user['id'] ?? 0);
+
+    if (!mounted) return;
+    if (_isPassenger) {
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const PassengerHomeScreen()));
+    } else {
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ConductorHomeScreen()));
+    }
+  } else {
+    setState(() => _error = 'Invalid phone or password');
+  }
+}
 
   // ── Dynamic theme based on role ──
   Color get _primaryColor => _isPassenger ? const Color(0xFF0F5298) : const Color(0xFFE65100);

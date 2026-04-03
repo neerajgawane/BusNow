@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -16,35 +17,61 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String? _error;
 
   Future<void> _register() async {
-    final name = _nameCtrl.text.trim();
-    final phone = _phoneCtrl.text.trim();
-    final pass = _passCtrl.text.trim();
+  final name = _nameCtrl.text.trim();
+  final phone = _phoneCtrl.text.trim();
+  final pass = _passCtrl.text.trim();
 
-    if (name.isEmpty || phone.isEmpty || pass.isEmpty) {
-      setState(() => _error = 'All fields are required');
+  if (name.isEmpty || phone.isEmpty || pass.isEmpty) {
+    setState(() => _error = 'All fields are required');
+    return;
+  }
+  if (pass.length < 6) {
+    setState(() => _error = 'Password must be at least 6 characters');
+    return;
+  }
+
+  setState(() { _loading = true; _error = null; });
+
+  // ── Demo-mode: store user locally, skip API ──
+  try {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Check if phone already exists locally
+    final existingUsers = prefs.getStringList('registered_phones') ?? [];
+    if (existingUsers.contains(phone)) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Phone number already registered.';
+      });
       return;
     }
-    if (pass.length < 6) {
-      setState(() => _error = 'Password must be at least 6 characters');
-      return;
-    }
 
-    setState(() { _loading = true; _error = null; });
-
-    final success = await ApiService.register(name, phone, pass);
+    // Save user data locally
+    existingUsers.add(phone);
+    await prefs.setStringList('registered_phones', existingUsers);
+    await prefs.setString('user_name_$phone', name);
+    await prefs.setString('user_pass_$phone', pass);
 
     if (!mounted) return;
     setState(() => _loading = false);
 
-    if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Account created! Please login.'), backgroundColor: Color(0xFF28A745)),
-      );
-      Navigator.pop(context);
-    } else {
-      setState(() => _error = 'Phone number already registered or server error.');
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Account created! Please login.'),
+        backgroundColor: Color(0xFF28A745),
+      ),
+    );
+    Navigator.pop(context);
+
+  } catch (e) {
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      _error = 'Something went wrong. Please try again.';
+    });
   }
+}
 
   @override
   Widget build(BuildContext context) {
