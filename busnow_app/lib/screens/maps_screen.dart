@@ -20,15 +20,60 @@ class _MapsScreenState extends State<MapsScreen> {
   int _currentIndex = 2;
   String? _role;
 
-  LatLng _busLocation = const LatLng(13.0067, 80.2206); // Default Adyar Signal
+  LatLng _busLocation = const LatLng(15.4589, 75.0078); // Default Dharwad New Bus Stand
   String _busColor = 'empty';
+
   final List<LatLng> _routePoints = const [
-    LatLng(13.0067, 80.2206),  // Adyar Signal
-    LatLng(13.0142, 80.2263),  // Kotturpuram
-    LatLng(13.0201, 80.2237),  // Saidapet
-    LatLng(13.0418, 80.2341),  // T. Nagar
+    LatLng(15.4589, 75.0078),  // Dharwad New Bus Stand
+    LatLng(15.4560, 75.0095),  // Dharwad BRTS Terminal
+    LatLng(15.4530, 75.0110),  // Jubilee Circle
+    LatLng(15.4498, 75.0118),  // Court Circle
+    LatLng(15.4470, 75.0130),  // NTTF
+    LatLng(15.4440, 75.0155),  // Hosayellapur Cross
+    LatLng(15.4410, 75.0175),  // Toll Naka
+    LatLng(15.4375, 75.0200),  // Vidyagiri
+    LatLng(15.4345, 75.0225),  // Gandhinagar
+    LatLng(15.4310, 75.0255),  // Yelakki Shelter Colony Cross
+    LatLng(15.4275, 75.0280),  // Lakamanahalli
+    LatLng(15.4240, 75.0310),  // Navalur
+    LatLng(15.4205, 75.0340),  // Sattur
+    LatLng(15.4170, 75.0370),  // SDM Medical College
+    LatLng(15.4135, 75.0400),  // Navalur Railway Station
+    LatLng(15.4100, 75.0430),  // Sanjivini Park
+    LatLng(15.4060, 75.0460),  // KMF1
+    LatLng(15.4020, 75.0490),  // Iskcon Temple
+    LatLng(15.3980, 75.0520),  // RTO Office
+    LatLng(15.3940, 75.0555),  // Rayapur
+    LatLng(15.3900, 75.0590),  // Navanagar
+    LatLng(15.3860, 75.0625),  // APMC 3rd Gate
+    LatLng(15.3820, 75.0660),  // Shantiniketan
+    LatLng(15.3780, 75.0700),  // Bairidevarkoppa
+    LatLng(15.3740, 75.0740),  // Unkal Lake
+    LatLng(15.3700, 75.0775),  // Unakal
+    LatLng(15.3665, 75.0810),  // Unakal Cross
+    LatLng(15.3630, 75.0845),  // BVB
+    LatLng(15.3595, 75.0880),  // Vidyanagar
+    LatLng(15.3560, 75.0915),  // KIMS
+    LatLng(15.3525, 75.0950),  // Hosur Regional Terminal
+    LatLng(15.3490, 75.0985),  // Hosur Cross
+    LatLng(15.3455, 75.1020),  // Hubli Central
+    LatLng(15.3420, 75.1055),  // Dr. B R Ambedkar Railway Station
+    LatLng(15.3385, 75.1090),  // HDMC
+    LatLng(15.3350, 75.1124),  // Hubli CBT
   ];
-  final List<String> _stopNames = ['Adyar Signal', 'Kotturpuram', 'Saidapet', 'T. Nagar'];
+
+  final List<String> _stopNames = [
+    'Dharwad New Bus Stand', 'Dharwad BRTS Terminal', 'Jubilee Circle',
+    'Court Circle', 'NTTF', 'Hosayellapur Cross', 'Toll Naka',
+    'Vidyagiri', 'Gandhinagar', 'Yelakki Shelter Colony Cross',
+    'Lakamanahalli', 'Navalur', 'Sattur', 'SDM Medical College',
+    'Navalur Railway Station', 'Sanjivini Park', 'KMF1', 'Iskcon Temple',
+    'RTO Office', 'Rayapur', 'Navanagar', 'APMC 3rd Gate',
+    'Shantiniketan', 'Bairidevarkoppa', 'Unkal Lake', 'Unakal',
+    'Unakal Cross', 'BVB', 'Vidyanagar', 'KIMS',
+    'Hosur Regional Terminal', 'Hosur Cross', 'Hubli Central',
+    'Dr. B R Ambedkar Railway Station', 'HDMC', 'Hubli CBT',
+  ];
 
   @override
   void initState() {
@@ -162,10 +207,14 @@ class _MapsScreenState extends State<MapsScreen> {
             shape: BoxShape.circle,
             border: Border.all(color: Colors.white, width: 2),
           ),
-          child: Center(child: Text('${i + 1}', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold))),
+          child: Center(child: Text('${i + 1}', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold))),
         ),
       ));
     }
+
+    // Center the map on the midpoint of the route
+    final midIndex = _routePoints.length ~/ 2;
+    final mapCenter = _routePoints[midIndex];
 
     return Scaffold(
       appBar: AppBar(
@@ -180,8 +229,8 @@ class _MapsScreenState extends State<MapsScreen> {
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              initialCenter: _busLocation,
-              initialZoom: 14.0,
+              initialCenter: mapCenter,
+              initialZoom: 12.5,
             ),
             children: [
               TileLayer(
@@ -256,7 +305,7 @@ class _MapsScreenState extends State<MapsScreen> {
                         child: const Column(
                           children: [
                             Text('BUS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0F5298))),
-                            Text('21C', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF0F5298))),
+                            Text('BRTS', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF0F5298))),
                           ],
                         ),
                       ),
@@ -331,7 +380,6 @@ class _MapsScreenState extends State<MapsScreen> {
               BottomNavigationBarItem(icon: Icon(Icons.directions_bus), label: 'BUSES'),
               BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'STATS'),
               BottomNavigationBarItem(icon: Icon(Icons.map), label: 'MAP'),
-              // BottomNavigationBarItem(icon: Icon(Icons.person), label: 'PROFILE'),
             ],
           ),
         ),

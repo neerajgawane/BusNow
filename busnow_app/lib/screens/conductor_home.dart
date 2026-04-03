@@ -39,8 +39,8 @@ class _ConductorHomeScreenState extends State<ConductorHomeScreen> {
 
   // All available buses
   final List<BusOption> _busOptions = const [
-    BusOption(id: 1, busNumber: '21C-001', route: 'ADYAR → T. NAGAR'),
-    BusOption(id: 2, busNumber: '21C-002', route: 'ADYAR → T. NAGAR'),
+    BusOption(id: 1, busNumber: 'BRTS-001', route: 'DHARWAD → HUBLI'),
+    BusOption(id: 2, busNumber: 'BRTS-002', route: 'DHARWAD → HUBLI'),
   ];
 
   BusOption get _selectedBus =>
@@ -135,8 +135,8 @@ class _ConductorHomeScreenState extends State<ConductorHomeScreen> {
 
     final body = {
       'crowd_level': _selectedCrowd,
-      'lat': pos?.latitude ?? 13.0067,
-      'lng': pos?.longitude ?? 80.2206,
+      'lat': pos?.latitude ?? 15.4589,
+      'lng': pos?.longitude ?? 75.0078,
     };
 
     try {
@@ -148,13 +148,7 @@ class _ConductorHomeScreenState extends State<ConductorHomeScreen> {
         },
         body: jsonEncode(body),
       );
-      // Also emit via socket for instant real-time push
-      SocketService.emitCrowdUpdate(
-        busId,
-        _selectedCrowd,
-        pos?.latitude ?? 13.0067,
-        pos?.longitude ?? 80.2206,
-      );
+      // REST API already broadcasts via Socket.io — no duplicate emit needed
       _loadStats();
       if (mounted) {
         setState(() {

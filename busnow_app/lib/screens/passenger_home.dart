@@ -22,11 +22,71 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
   List<dynamic> incomingBuses = [];
 
   final List<Map<String, dynamic>> _stops = [
-    {"stop_id": 1, "name": "Adyar Signal"},
-    {"stop_id": 2, "name": "Kotturpuram"},
-    {"stop_id": 3, "name": "Saidapet"},
-    {"stop_id": 4, "name": "T. Nagar"},
+    {"stop_id": 1,  "name": "Dharwad New Bus Stand"},
+    {"stop_id": 2,  "name": "Dharwad BRTS Terminal"},
+    {"stop_id": 3,  "name": "Jubilee Circle"},
+    {"stop_id": 4,  "name": "Court Circle"},
+    {"stop_id": 5,  "name": "NTTF"},
+    {"stop_id": 6,  "name": "Hosayellapur Cross"},
+    {"stop_id": 7,  "name": "Toll Naka"},
+    {"stop_id": 8,  "name": "Vidyagiri"},
+    {"stop_id": 9,  "name": "Gandhinagar"},
+    {"stop_id": 10, "name": "Yelakki Shelter Colony Cross"},
+    {"stop_id": 11, "name": "Lakamanahalli"},
+    {"stop_id": 12, "name": "Navalur"},
+    {"stop_id": 13, "name": "Sattur"},
+    {"stop_id": 14, "name": "SDM Medical College"},
+    {"stop_id": 15, "name": "Navalur Railway Station"},
+    {"stop_id": 16, "name": "Sanjivini Park"},
+    {"stop_id": 17, "name": "KMF1"},
+    {"stop_id": 18, "name": "Iskcon Temple"},
+    {"stop_id": 19, "name": "RTO Office"},
+    {"stop_id": 20, "name": "Rayapur"},
+    {"stop_id": 21, "name": "Navanagar"},
+    {"stop_id": 22, "name": "APMC 3rd Gate"},
+    {"stop_id": 23, "name": "Shantiniketan"},
+    {"stop_id": 24, "name": "Bairidevarkoppa"},
+    {"stop_id": 25, "name": "Unkal Lake"},
+    {"stop_id": 26, "name": "Unakal"},
+    {"stop_id": 27, "name": "Unakal Cross"},
+    {"stop_id": 28, "name": "BVB"},
+    {"stop_id": 29, "name": "Vidyanagar"},
+    {"stop_id": 30, "name": "KIMS"},
+    {"stop_id": 31, "name": "Hosur Regional Terminal"},
+    {"stop_id": 32, "name": "Hosur Cross"},
+    {"stop_id": 33, "name": "Hubli Central"},
+    {"stop_id": 34, "name": "Dr. B R Ambedkar Railway Station"},
+    {"stop_id": 35, "name": "HDMC"},
+    {"stop_id": 36, "name": "Hubli CBT"},
   ];
+
+  // Static fallback bus data for demo — used when API is unavailable
+  List<Map<String, dynamic>> _getStaticBuses(int stopId) {
+    // Calculate a simple fake ETA based on stop position
+    final etaBus1 = (stopId <= 18) ? (stopId * 2) : ((36 - stopId) * 2 + 1);
+    final etaBus2 = (stopId <= 18) ? ((18 - stopId).abs() * 2 + 3) : ((stopId - 18) * 2);
+    return [
+      {
+        'bus_id': 1,
+        'bus_number': 'BRTS-001',
+        'crowd_level': _crowdOverrides[1] ?? 'moderate',
+        'eta_minutes': etaBus1.clamp(1, 45),
+        'lat': 15.4589,
+        'lng': 75.0078,
+      },
+      {
+        'bus_id': 2,
+        'bus_number': 'BRTS-002',
+        'crowd_level': _crowdOverrides[2] ?? 'empty',
+        'eta_minutes': etaBus2.clamp(1, 45),
+        'lat': 15.3980,
+        'lng': 75.0520,
+      },
+    ];
+  }
+
+  // Track crowd level overrides from conductor updates
+  final Map<int, String> _crowdOverrides = {};
 
   @override
   void initState() {
@@ -34,16 +94,36 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
     SocketService.connect(token: globalToken);
 
     SocketService.on('stop:incoming_buses', (data) {
-      if (mounted && data is List && data.isNotEmpty) {
+      if (mounted && data is List) {
         setState(() {
-          incomingBuses = data;
+          if (data.isNotEmpty) {
+            incomingBuses = data;
+          } else {
+            incomingBuses = _getStaticBuses(_selectedStop);
+          }
           _loading = false;
         });
       }
     });
 
+    // Listen for real-time crowd updates and instantly reflect them
     SocketService.on('bus:crowd_update', (data) {
-      _fetchBusesRest(_selectedStop);
+      if (mounted && data is Map) {
+        final busId = data['bus_id'];
+        final crowdLevel = data['crowd_level'];
+        if (busId != null && crowdLevel != null) {
+          setState(() {
+            _crowdOverrides[busId] = crowdLevel;
+            // Update the current bus list immediately
+            for (int i = 0; i < incomingBuses.length; i++) {
+              if (incomingBuses[i]['bus_id'] == busId) {
+                incomingBuses[i] = Map<String, dynamic>.from(incomingBuses[i]);
+                incomingBuses[i]['crowd_level'] = crowdLevel;
+              }
+            }
+          });
+        }
+      }
       _subscribeToStop(_selectedStop);
     });
 
@@ -61,19 +141,47 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
 
   Future<void> _fetchBusesRest(int stopId) async {
     try {
-      final res = await http.get(Uri.parse('$baseUrl/stops/$stopId/buses'));
+      final res = await http.get(
+        Uri.parse('$baseUrl/stops/$stopId/buses'),
+        headers: {
+          if (globalToken != null && globalToken!.isNotEmpty)
+            'Authorization': 'Bearer $globalToken',
+        },
+      );
       if (res.statusCode == 200 && mounted) {
         final data = jsonDecode(res.body);
-        if (data is List) {
+        if (data is List && data.isNotEmpty) {
           setState(() {
             incomingBuses = data;
+            _loading = false;
+          });
+        } else {
+          // API returned empty — use static fallback
+          if (mounted) {
+            setState(() {
+              incomingBuses = _getStaticBuses(stopId);
+              _loading = false;
+            });
+          }
+        }
+      } else {
+        // Non-200 response — use static fallback
+        if (mounted) {
+          setState(() {
+            incomingBuses = _getStaticBuses(stopId);
             _loading = false;
           });
         }
       }
     } catch (e) {
       debugPrint(e.toString());
-      if (mounted) setState(() => _loading = false);
+      // Network error — use static fallback
+      if (mounted) {
+        setState(() {
+          incomingBuses = _getStaticBuses(stopId);
+          _loading = false;
+        });
+      }
     }
   }
 
@@ -523,7 +631,7 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
 
   Widget _buildBusCard(Map<String, dynamic> bus) {
     final String busNumber = bus['bus_number'] ?? '';
-    final String route = bus['route'] ?? '21C';
+    final String route = bus['route'] ?? 'BRTS';
     final int eta = bus['eta_minutes'] ?? 5;
     final String crowd = bus['crowd_level'] ?? 'moderate';
 
