@@ -61,6 +61,13 @@ class _ConductorStatsScreenState extends State<ConductorStatsScreen> {
     }
   }
 
+  int _xpToNextRank() {
+    if (xp >= 5000) return 0; // Already Transit Legend
+    if (xp >= 2000) return 5000 - xp;
+    if (xp >= 500) return 2000 - xp;
+    return 500 - xp;
+  }
+
   void _goToProfile() {
     Navigator.push(
         context,
@@ -399,7 +406,7 @@ class _ConductorStatsScreenState extends State<ConductorStatsScreen> {
                             fontWeight: FontWeight.bold,
                             color: Color(0xFF14142B))),
                     const SizedBox(height: 4),
-                    Text('${2000 - xp} XP to next rank',
+                    Text('${_xpToNextRank()} XP to next rank',
                         style: const TextStyle(
                             fontSize: 13, color: Color(0xFF666666))),
                     const SizedBox(height: 16),
@@ -440,10 +447,10 @@ class _ConductorStatsScreenState extends State<ConductorStatsScreen> {
               padding: const EdgeInsets.all(8),
               child: Column(
                 children: [
-                  _buildRankItem('Transit Legend', '5000+ XP', '🏆', false),
-                  _buildRankItem('Road Guardian', '2000-5000 XP', '🥇', false),
-                  _buildRankItem('Route Veteran', '500-2000 XP', '🥈', true),
-                  _buildRankItem('Rookie Reporter', '0-500 XP', '🥉', false),
+                  _buildRankItem('Transit Legend', '5000+ XP', '🏆', rank == 'Transit Legend'),
+                  _buildRankItem('Road Guardian', '2000-5000 XP', '🥇', rank == 'Road Guardian'),
+                  _buildRankItem('Route Veteran', '500-2000 XP', '🥈', rank == 'Route Veteran'),
+                  _buildRankItem('Rookie Reporter', '0-500 XP', '🥉', rank == 'Rookie Reporter'),
                 ],
               ),
             ),

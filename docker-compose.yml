@@ -10,7 +10,8 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - pgdata:/var/lib/postgresql/data
+      - ./backend/schema.sql:/docker-entrypoint-initdb.d/schema.sql
     restart: unless-stopped
 
   backend:
@@ -25,6 +26,10 @@ services:
       DB_PASSWORD: busnowpassword
       DB_NAME: busnow_db
       JWT_SECRET: supersecretjwtkey
+      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
     depends_on:
       - db
     restart: unless-stopped
+
+volumes:
+  pgdata:

@@ -20,16 +20,15 @@ class _MapsScreenState extends State<MapsScreen> {
   int _currentIndex = 2;
   String? _role;
 
-  LatLng _busLocation = const LatLng(19.0178, 72.8478); // Default Dadar
+  LatLng _busLocation = const LatLng(13.0067, 80.2206); // Default Adyar Signal
   String _busColor = 'empty';
   final List<LatLng> _routePoints = const [
-    LatLng(19.0178, 72.8478),  // Dadar
-    LatLng(19.0368, 72.8397),  // Mahim
-    LatLng(19.0544, 72.8403),  // Bandra
-    LatLng(19.0726, 72.8369),  // Khar
-    LatLng(19.1197, 72.8464),  // Andheri
+    LatLng(13.0067, 80.2206),  // Adyar Signal
+    LatLng(13.0142, 80.2263),  // Kotturpuram
+    LatLng(13.0201, 80.2237),  // Saidapet
+    LatLng(13.0418, 80.2341),  // T. Nagar
   ];
-  final List<String> _stopNames = ['Dadar Station', 'Mahim Junction', 'Bandra Bus Depot', 'Khar Station', 'Andheri Station'];
+  final List<String> _stopNames = ['Adyar Signal', 'Kotturpuram', 'Saidapet', 'T. Nagar'];
 
   @override
   void initState() {

@@ -22,17 +22,16 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
   List<dynamic> incomingBuses = [];
 
   final List<Map<String, dynamic>> _stops = [
-    {"stop_id": 1, "name": "Dadar Station"},
-    {"stop_id": 2, "name": "Mahim Junction"},
-    {"stop_id": 3, "name": "Bandra Bus Depot"},
-    {"stop_id": 4, "name": "Khar Station"},
-    {"stop_id": 5, "name": "Andheri Station"},
+    {"stop_id": 1, "name": "Adyar Signal"},
+    {"stop_id": 2, "name": "Kotturpuram"},
+    {"stop_id": 3, "name": "Saidapet"},
+    {"stop_id": 4, "name": "T. Nagar"},
   ];
 
   @override
   void initState() {
     super.initState();
-    SocketService.connect();
+    SocketService.connect(token: globalToken);
 
     SocketService.on('stop:incoming_buses', (data) {
       if (mounted && data is List && data.isNotEmpty) {
@@ -523,6 +522,7 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
   }
 
   Widget _buildBusCard(Map<String, dynamic> bus) {
+    final String busNumber = bus['bus_number'] ?? '';
     final String route = bus['route'] ?? '21C';
     final int eta = bus['eta_minutes'] ?? 5;
     final String crowd = bus['crowd_level'] ?? 'moderate';
@@ -598,7 +598,7 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
                     ),
                   ),
                   Text(
-                    route,
+                    busNumber.isNotEmpty ? busNumber : route,
                     style: const TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.w900,

@@ -9,6 +9,9 @@ CREATE TABLE IF NOT EXISTS users (
   route_id INTEGER,
   password_hash TEXT,
   xp INTEGER DEFAULT 0,
+  rank TEXT DEFAULT 'Rookie Reporter',
+  streak_days INTEGER DEFAULT 0,
+  last_update_date DATE,
   created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -40,9 +43,7 @@ CREATE TABLE IF NOT EXISTS crowd_logs (
   timestamp TIMESTAMP DEFAULT NOW()
 );
 
--- Seed Data
-
--- 1 route
+-- Seed Data (Chennai Route 21C)
 INSERT INTO routes (route_number, route_name, stops) VALUES (
   '21C', 'Adyar to T. Nagar', 
   '[
@@ -53,7 +54,6 @@ INSERT INTO routes (route_number, route_name, stops) VALUES (
   ]'::jsonb
 );
 
--- 1 conductor user
 INSERT INTO users (name, phone, role, bus_id, route_id, password_hash)
 VALUES (
   'Conductor Raj', 
@@ -61,9 +61,19 @@ VALUES (
   'conductor', 
   1, 
   1, 
-  crypt('BusNow@Conductor1', gen_salt('bf'))
+  crypt('conductor123', gen_salt('bf'))
 );
 
--- 1 bus
+INSERT INTO users (name, phone, role, password_hash)
+VALUES (
+  'Passenger Anil',
+  '9988776655',
+  'passenger',
+  crypt('passenger123', gen_salt('bf'))
+);
+
 INSERT INTO buses (bus_number, route_id, conductor_id, current_lat, current_lng, crowd_level)
 VALUES ('21C-001', 1, 1, 13.0067, 80.2206, 'empty');
+
+INSERT INTO buses (bus_number, route_id, current_lat, current_lng, crowd_level)
+VALUES ('21C-002', 1, 13.0201, 80.2237, 'empty');

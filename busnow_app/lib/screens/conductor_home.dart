@@ -39,11 +39,8 @@ class _ConductorHomeScreenState extends State<ConductorHomeScreen> {
 
   // All available buses
   final List<BusOption> _busOptions = const [
-    BusOption(id: 1, busNumber: '330', route: 'DADAR → ANDHERI'),
-    BusOption(id: 2, busNumber: '451', route: 'KURLA → BORIVALI'),
-    BusOption(id: 3, busNumber: '211', route: 'CST → BANDRA'),
-    BusOption(id: 4, busNumber: '506', route: 'THANE → MULUND'),
-    BusOption(id: 5, busNumber: '388', route: 'GHATKOPAR → GOREGAON'),
+    BusOption(id: 1, busNumber: '21C-001', route: 'ADYAR → T. NAGAR'),
+    BusOption(id: 2, busNumber: '21C-002', route: 'ADYAR → T. NAGAR'),
   ];
 
   BusOption get _selectedBus =>
@@ -52,7 +49,7 @@ class _ConductorHomeScreenState extends State<ConductorHomeScreen> {
   @override
   void initState() {
     super.initState();
-    SocketService.connect();
+    SocketService.connect(token: globalToken);
     _loadUserData();
     _loadStats();
     _initGPS();
@@ -99,16 +96,13 @@ class _ConductorHomeScreenState extends State<ConductorHomeScreen> {
       if (permission == LocationPermission.denied) return;
     }
 
-    _gpsTimer = Timer.periodic(const Duration(seconds: 10), (timer) async {
+    _gpsTimer = Timer.periodic(const Duration(seconds: 30), (timer) async {
       try {
         Position position = await Geolocator.getCurrentPosition(
             desiredAccuracy: LocationAccuracy.high);
-        SocketService.emit('bus:location_update', {
-          'bus_id': busId,
-          'lat': position.latitude,
-          'lng': position.longitude,
-          'timestamp': DateTime.now().toIso8601String()
-        });
+        SocketService.emitLocationUpdate(
+          busId, position.latitude, position.longitude,
+        );
       } catch (e) {
         debugPrint(e.toString());
       }
@@ -153,6 +147,13 @@ class _ConductorHomeScreenState extends State<ConductorHomeScreen> {
           'Authorization': 'Bearer $globalToken'
         },
         body: jsonEncode(body),
+      );
+      // Also emit via socket for instant real-time push
+      SocketService.emitCrowdUpdate(
+        busId,
+        _selectedCrowd,
+        pos?.latitude ?? 13.0067,
+        pos?.longitude ?? 80.2206,
       );
       _loadStats();
       if (mounted) {
