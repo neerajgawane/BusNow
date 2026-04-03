@@ -6,6 +6,7 @@ import '../services/socket_service.dart';
 import '../utils/constants.dart';
 import 'maps_screen.dart';
 import 'login_screen.dart';
+import 'passenger_profile.dart';
 
 class PassengerHomeScreen extends StatefulWidget {
   const PassengerHomeScreen({super.key});
@@ -32,23 +33,23 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
   void initState() {
     super.initState();
     SocketService.connect();
-    
+
     SocketService.on('stop:incoming_buses', (data) {
-      if(mounted && data is List && data.isNotEmpty) {
+      if (mounted && data is List && data.isNotEmpty) {
         setState(() {
           incomingBuses = data;
           _loading = false;
         });
       }
     });
-    
+
     SocketService.on('bus:crowd_update', (data) {
-       _fetchBusesRest(_selectedStop);
-       _subscribeToStop(_selectedStop);
+      _fetchBusesRest(_selectedStop);
+      _subscribeToStop(_selectedStop);
     });
-    
+
     SocketService.on('bus:location_update', (data) {
-       _subscribeToStop(_selectedStop);
+      _subscribeToStop(_selectedStop);
     });
 
     _subscribeToStop(_selectedStop);
@@ -80,50 +81,135 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
   void _onNavTap(int index) {
     if (index == _currentIndex) return;
     if (index == 1) {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => const MapsScreen()));
-    } else if (index == 3) {
-      _showProfileSheet();
+      Navigator.push(
+          context, MaterialPageRoute(builder: (_) => const MapsScreen()));
     }
+    // index 2 = Alerts (no-op for now)
   }
 
-  void _showProfileSheet() async {
-    final prefs = await SharedPreferences.getInstance();
-    final name = prefs.getString('name') ?? 'Passenger';
-    if (!mounted) return;
+  /// Opens the sidebar drawer
+  void _openDrawer(BuildContext context) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Sidebar',
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 260),
+      pageBuilder: (_, __, ___) => const SizedBox.shrink(),
+      transitionBuilder: (ctx, anim, _, __) {
+        final curved =
+            CurvedAnimation(parent: anim, curve: Curves.easeOutCubic);
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: SlideTransition(
+            position: Tween<Offset>(
+                    begin: const Offset(-1, 0), end: Offset.zero)
+                .animate(curved),
+            child: _DrawerContent(
+              stops: _stops,
+              onNavigateToProfile: () {
+                Navigator.pop(ctx);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const PassengerProfileScreen()),
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// Shows the stop picker bottom sheet
+  void _showStopPicker() {
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (_) => Padding(
-        padding: const EdgeInsets.all(32),
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircleAvatar(radius: 32, backgroundColor: const Color(0xFFE5EFFF), child: Text(name[0].toUpperCase(), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF0F5298)))),
-            const SizedBox(height: 16),
-            Text(name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const Text('PASSENGER', style: TextStyle(fontSize: 12, color: Color(0xFF8E8E9F), letterSpacing: 1)),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.logout, color: Colors.white),
-                label: const Text('Logout', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFD32F2F),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                onPressed: () async {
-                  await prefs.clear();
-                  if (mounted) {
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (_) => const LoginScreen()),
-                      (route) => false,
-                    );
-                  }
-                },
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE0E0E0),
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
+            const SizedBox(height: 20),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'SELECT STOP',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF8E8E9F),
+                    letterSpacing: 1.5,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            ..._stops.map((s) {
+              final isSelected = s['stop_id'] == _selectedStop;
+              return ListTile(
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+                leading: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? const Color(0xFF0F5298)
+                        : const Color(0xFFEAECEF),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.directions_bus,
+                    color: isSelected ? Colors.white : const Color(0xFF8E8E9F),
+                    size: 20,
+                  ),
+                ),
+                title: Text(
+                  s['name'],
+                  style: TextStyle(
+                    fontWeight: isSelected
+                        ? FontWeight.bold
+                        : FontWeight.w500,
+                    color: isSelected
+                        ? const Color(0xFF0F5298)
+                        : const Color(0xFF14142B),
+                    fontSize: 16,
+                  ),
+                ),
+                trailing: isSelected
+                    ? const Icon(Icons.check_circle,
+                        color: Color(0xFF0F5298), size: 22)
+                    : null,
+                onTap: () {
+                  setState(() {
+                    _selectedStop = s['stop_id'];
+                    _loading = true;
+                    incomingBuses = [];
+                  });
+                  _subscribeToStop(s['stop_id']);
+                  _fetchBusesRest(s['stop_id']);
+                  Navigator.pop(context);
+                },
+              );
+            }).toList(),
+            const SizedBox(height: 24),
           ],
         ),
       ),
@@ -131,46 +217,65 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
   }
 
   Color _getCrowdBgColor(String level) {
-    if(level == 'empty') return const Color(0xFFDDF5E6);
-    if(level == 'moderate') return const Color(0xFFFFECC6);
-    if(level == 'full') return const Color(0xFFFFE0CC);
+    if (level == 'empty') return const Color(0xFFDDF5E6);
+    if (level == 'moderate') return const Color(0xFFFFECC6);
+    if (level == 'full') return const Color(0xFFFFE0CC);
     return const Color(0xFFFFD6D6);
   }
-  
+
   Color _getCrowdTextColor(String level) {
-    if(level == 'empty') return const Color(0xFF008A3D);
-    if(level == 'moderate') return const Color(0xFFD49A00);
-    if(level == 'full') return const Color(0xFFE65C00);
+    if (level == 'empty') return const Color(0xFF008A3D);
+    if (level == 'moderate') return const Color(0xFFD49A00);
+    if (level == 'full') return const Color(0xFFE65C00);
     return const Color(0xFFD32F2F);
   }
 
   Color _getEtaColor(int eta) {
-    if (eta <= 3) return const Color(0xFFD32F2F); // Red
-    if (eta <= 8) return const Color(0xFF0F5298); // Blue
-    return const Color(0xFF4A4A5A); // Grey
+    if (eta <= 3) return const Color(0xFFD32F2F);
+    if (eta <= 8) return const Color(0xFF0F5298);
+    return const Color(0xFF4A4A5A);
   }
 
   @override
   Widget build(BuildContext context) {
-    String currentStopName = _stops.firstWhere((s) => s['stop_id'] == _selectedStop)['name'];
+    final currentStopName =
+        _stops.firstWhere((s) => s['stop_id'] == _selectedStop)['name'];
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9F9FB),
       appBar: AppBar(
         backgroundColor: const Color(0xFFF9F9FB),
         elevation: 0,
-        leading: IconButton(icon: const Icon(Icons.menu, color: Color(0xFF0F5298)), onPressed: () {}),
-        title: const Text('Urban Velocity', style: TextStyle(color: Color(0xFF0F5298), fontWeight: FontWeight.bold, fontSize: 20, letterSpacing: -0.5)),
+        leading: IconButton(
+          icon: const Icon(Icons.menu_rounded, color: Color(0xFF0F5298), size: 26),
+          onPressed: () => _openDrawer(context),
+        ),
+        title: const Text(
+          'Urban Velocity',
+          style: TextStyle(
+            color: Color(0xFF0F5298),
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+            letterSpacing: -0.5,
+          ),
+        ),
         centerTitle: true,
-        actions: const [
+        actions: [
           Padding(
-            padding: EdgeInsets.only(right: 16.0),
-            child: CircleAvatar(
-              radius: 16,
-              backgroundImage: NetworkImage('https://i.pravatar.cc/100'),
-              backgroundColor: Colors.black12,
+            padding: const EdgeInsets.only(right: 16.0),
+            child: GestureDetector(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const PassengerProfileScreen()),
+              ),
+              child: const CircleAvatar(
+                radius: 18,
+                backgroundImage: NetworkImage('https://i.pravatar.cc/100'),
+                backgroundColor: Colors.black12,
+              ),
             ),
-          )
+          ),
         ],
       ),
       body: SingleChildScrollView(
@@ -178,12 +283,22 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ── Location header ──
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('YOUR LOCATION', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF4A4A5A), letterSpacing: 1.0)),
+                const Text(
+                  'YOUR LOCATION',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF8E8E9F),
+                    letterSpacing: 1.2,
+                  ),
+                ),
                 IconButton(
-                  icon: const Icon(Icons.my_location, color: Color(0xFF0F5298), size: 20),
+                  icon: const Icon(Icons.my_location,
+                      color: Color(0xFF0F5298), size: 20),
                   onPressed: () {},
                   constraints: const BoxConstraints(),
                   padding: EdgeInsets.zero,
@@ -191,64 +306,105 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            
-            // Dropdown substitute container
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 6,
-                    height: 60,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF0F5298),
-                      borderRadius: BorderRadius.only(topLeft: Radius.circular(16), bottomLeft: Radius.circular(16)),
+
+            // ── Stop selector (functional dropdown) ──
+            GestureDetector(
+              onTap: _showStopPicker,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
                     ),
-                  ),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(currentStopName, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF14142B))),
-                          const Icon(Icons.keyboard_arrow_down, color: Color(0xFF8E8E9F), size: 28),
-                        ],
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 60,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF0F5298),
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(16),
+                          bottomLeft: Radius.circular(16),
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              currentStopName,
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF14142B),
+                              ),
+                            ),
+                            const Icon(Icons.keyboard_arrow_down,
+                                color: Color(0xFF8E8E9F), size: 28),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 16),
-            
-            // Horizontal Chips
+
+            // ── Stop chips ──
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: _stops.map((s) {
-                  bool isSelected = s['stop_id'] == _selectedStop;
+                  final isSelected = s['stop_id'] == _selectedStop;
                   return Padding(
-                    padding: const EdgeInsets.only(right: 12.0),
+                    padding: const EdgeInsets.only(right: 10.0),
                     child: GestureDetector(
                       onTap: () {
-                        setState(() => _selectedStop = s['stop_id']);
+                        setState(() {
+                          _selectedStop = s['stop_id'];
+                          _loading = true;
+                          incomingBuses = [];
+                        });
                         _subscribeToStop(s['stop_id']);
+                        _fetchBusesRest(s['stop_id']);
                       },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 10),
                         decoration: BoxDecoration(
-                          color: isSelected ? const Color(0xFF0F5298) : const Color(0xFFEAECEF),
+                          color: isSelected
+                              ? const Color(0xFF0F5298)
+                              : const Color(0xFFEAECEF),
                           borderRadius: BorderRadius.circular(20),
+                          boxShadow: isSelected
+                              ? [
+                                  BoxShadow(
+                                    color: const Color(0xFF0F5298)
+                                        .withOpacity(0.30),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  )
+                                ]
+                              : [],
                         ),
                         child: Text(
                           s['name'],
                           style: TextStyle(
-                            color: isSelected ? Colors.white : const Color(0xFF4A4A5A),
+                            color: isSelected
+                                ? Colors.white
+                                : const Color(0xFF4A4A5A),
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
                           ),
@@ -259,36 +415,89 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
                 }).toList(),
               ),
             ),
-            
+
             const SizedBox(height: 32),
-            const Text('UPCOMING BUSES', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF8E8E9F), letterSpacing: 1.5)),
+
+            // ── Section title ──
+            Row(
+              children: [
+                const Text(
+                  'UPCOMING BUSES',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF8E8E9F),
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                const Spacer(),
+                if (!_loading)
+                  Text(
+                    '${incomingBuses.length} found',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF0F5298),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+              ],
+            ),
             const SizedBox(height: 16),
-            
-            // Bus List
+
+            // ── Bus list ──
             if (_loading)
               const Padding(
-                padding: EdgeInsets.all(32),
-                child: Center(child: CircularProgressIndicator(color: Color(0xFF0F5298))),
+                padding: EdgeInsets.all(40),
+                child: Center(
+                    child: CircularProgressIndicator(color: Color(0xFF0F5298))),
               )
             else if (incomingBuses.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(32),
-                child: Center(child: Text('No buses currently on this route.', style: TextStyle(fontSize: 16, color: Color(0xFF8E8E9F)))),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 48),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Icon(Icons.directions_bus_outlined,
+                          size: 52, color: Colors.grey.shade300),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'No buses on this route right now.',
+                        style: TextStyle(
+                            fontSize: 15, color: Color(0xFF8E8E9F)),
+                      ),
+                    ],
+                  ),
+                ),
               )
             else
               ...incomingBuses.map((bus) => _buildBusCard(bus)).toList(),
+
             const SizedBox(height: 32),
           ],
         ),
       ),
+
+      // ── Bottom nav (3 items, no Profile) ──
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          boxShadow: [BoxShadow(color: Colors.black12.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5))],
-          borderRadius: const BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black12.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -5),
+            ),
+          ],
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(24),
+            topRight: Radius.circular(24),
+          ),
         ),
         child: ClipRRect(
-          borderRadius: const BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(24),
+            topRight: Radius.circular(24),
+          ),
           child: BottomNavigationBar(
             currentIndex: _currentIndex,
             onTap: _onNavTap,
@@ -296,13 +505,16 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
             backgroundColor: Colors.white,
             selectedItemColor: const Color(0xFF0F5298),
             unselectedItemColor: const Color(0xFF999999),
-            selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10),
-            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 10),
+            selectedLabelStyle:
+                const TextStyle(fontWeight: FontWeight.bold, fontSize: 10),
+            unselectedLabelStyle:
+                const TextStyle(fontWeight: FontWeight.w600, fontSize: 10),
             items: const [
-              BottomNavigationBarItem(icon: Icon(Icons.directions_bus), label: 'BUSES'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.directions_bus), label: 'BUSES'),
               BottomNavigationBarItem(icon: Icon(Icons.map), label: 'MAP'),
-              BottomNavigationBarItem(icon: Icon(Icons.notifications), label: 'ALERTS'),
-              BottomNavigationBarItem(icon: Icon(Icons.person), label: 'PROFILE'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.notifications), label: 'ALERTS'),
             ],
           ),
         ),
@@ -311,114 +523,357 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
   }
 
   Widget _buildBusCard(Map<String, dynamic> bus) {
-    String route = bus['route'] ?? '21C';
-    int eta = bus['eta_minutes'] ?? 5;
-    String crowd = bus['crowd_level'] ?? 'moderate';
-    
-    Color etaColor = _getEtaColor(eta);
-    Color crowdBgColor = _getCrowdBgColor(crowd);
-    Color crowdTextColor = _getCrowdTextColor(crowd);
-    
-    // Recommendation
-    Widget statusWidget;
-    if (crowd == 'overcrowded' || crowd == 'full') {
-      statusWidget = Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFE5E5),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.warning, color: Color(0xFFD32F2F), size: 16),
-            SizedBox(width: 8),
-            Text('Wait for next bus', style: TextStyle(color: Color(0xFFD32F2F), fontWeight: FontWeight.bold, fontSize: 13)),
-          ],
-        ),
-      );
-    } else {
-      statusWidget = Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: const Color(0xFFDDF5E6),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.check_circle, color: Color(0xFF008A3D), size: 16),
-            SizedBox(width: 6),
-            Text('Board this bus', style: TextStyle(color: Color(0xFF008A3D), fontWeight: FontWeight.bold, fontSize: 13)),
-          ],
-        ),
-      );
-    }
+    final String route = bus['route'] ?? '21C';
+    final int eta = bus['eta_minutes'] ?? 5;
+    final String crowd = bus['crowd_level'] ?? 'moderate';
+
+    final Color etaColor = _getEtaColor(eta);
+    final Color crowdBgColor = _getCrowdBgColor(crowd);
+    final Color crowdTextColor = _getCrowdTextColor(crowd);
+    final bool isCrowded = crowd == 'overcrowded' || crowd == 'full';
+
+    final Widget statusWidget = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: isCrowded
+            ? const Color(0xFFFFE5E5)
+            : const Color(0xFFDDF5E6),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isCrowded ? Icons.warning_rounded : Icons.check_circle_rounded,
+            color: isCrowded
+                ? const Color(0xFFD32F2F)
+                : const Color(0xFF008A3D),
+            size: 16,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            isCrowded ? 'Wait for next bus' : 'Board this bus',
+            style: TextStyle(
+              color: isCrowded
+                  ? const Color(0xFFD32F2F)
+                  : const Color(0xFF008A3D),
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
+    );
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           padding: const EdgeInsets.all(20),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              // Route
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('ROUTE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF8E8E9F))),
-                  Text(route, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Color(0xFF14142B))),
+                  const Text(
+                    'ROUTE',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF8E8E9F),
+                      letterSpacing: 1,
+                    ),
+                  ),
+                  Text(
+                    route,
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF14142B),
+                    ),
+                  ),
                 ],
               ),
+              // ETA
               Row(
                 crossAxisAlignment: CrossAxisAlignment.baseline,
                 textBaseline: TextBaseline.alphabetic,
                 children: [
-                  Text('$eta', style: TextStyle(fontSize: 52, fontWeight: FontWeight.bold, color: etaColor, height: 1.0, letterSpacing: -2)),
+                  Text(
+                    '$eta',
+                    style: TextStyle(
+                      fontSize: 52,
+                      fontWeight: FontWeight.bold,
+                      color: etaColor,
+                      height: 1.0,
+                      letterSpacing: -2,
+                    ),
+                  ),
                   const SizedBox(width: 4),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      const Text('MIN', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF8E8E9F), height: 1.0)),
-                      const SizedBox(height: 8),
+                    children: const [
+                      Text(
+                        'MIN',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF8E8E9F),
+                          height: 1.0,
+                        ),
+                      ),
+                      SizedBox(height: 8),
                     ],
                   ),
                 ],
               ),
+              // Crowd + live indicator
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: crowdBgColor,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Text(crowd.toUpperCase(), style: TextStyle(color: crowdTextColor, fontWeight: FontWeight.bold, fontSize: 10, letterSpacing: 0.5)),
+                    child: Text(
+                      crowd.toUpperCase(),
+                      style: TextStyle(
+                        color: crowdTextColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 10,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 16),
-                  const Icon(Icons.wifi_tethering, color: Color(0xFFA0A0B0), size: 18),
+                  const Icon(Icons.wifi_tethering,
+                      color: Color(0xFFA0A0B0), size: 18),
                 ],
               ),
             ],
           ),
         ),
-        if (crowd == 'overcrowded' || crowd == 'full')
-          Padding(
-            padding: const EdgeInsets.only(left: 8, top: 12, bottom: 24),
-            child: statusWidget,
-          )
-        else
-          Padding(
-            padding: const EdgeInsets.only(left: 8, top: 12, bottom: 24),
-            child: statusWidget,
-          ),
+        Padding(
+          padding: const EdgeInsets.only(left: 8, top: 10, bottom: 24),
+          child: statusWidget,
+        ),
       ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// Sidebar drawer widget
+// ─────────────────────────────────────────────
+class _DrawerContent extends StatelessWidget {
+  final List<Map<String, dynamic>> stops;
+  final VoidCallback onNavigateToProfile;
+
+  const _DrawerContent({
+    required this.stops,
+    required this.onNavigateToProfile,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        width: MediaQuery.of(context).size.width * 0.76,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topRight: Radius.circular(28),
+            bottomRight: Radius.circular(28),
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF0A3D7A), Color(0xFF1565C0)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.only(
+                    topRight: Radius.circular(28),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Icon(Icons.directions_bus_filled,
+                          color: Color(0xFF0F5298), size: 28),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Urban Velocity',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: -0.4,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Passenger App',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Menu items
+              _drawerItem(
+                icon: Icons.person_outline_rounded,
+                label: 'My Profile',
+                onTap: onNavigateToProfile,
+              ),
+              _drawerItem(
+                icon: Icons.notifications_outlined,
+                label: 'Notifications',
+                badge: '3',
+                onTap: () => Navigator.pop(context),
+              ),
+              _drawerItem(
+                icon: Icons.history_rounded,
+                label: 'Trip History',
+                onTap: () => Navigator.pop(context),
+              ),
+              _drawerItem(
+                icon: Icons.favorite_border_rounded,
+                label: 'Saved Stops',
+                onTap: () => Navigator.pop(context),
+              ),
+
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                child: Divider(color: Color(0xFFF0F0F5)),
+              ),
+
+              _drawerItem(
+                icon: Icons.settings_outlined,
+                label: 'Settings',
+                onTap: () => Navigator.pop(context),
+              ),
+              _drawerItem(
+                icon: Icons.help_outline_rounded,
+                label: 'Help & Support',
+                onTap: () => Navigator.pop(context),
+              ),
+              _drawerItem(
+                icon: Icons.info_outline_rounded,
+                label: 'About',
+                onTap: () => Navigator.pop(context),
+              ),
+
+              const Spacer(),
+
+              // App version
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                child: Text(
+                  'Version 1.0.0',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade400,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _drawerItem({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    String? badge,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: const Color(0xFF0F5298), size: 22),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF14142B),
+                  ),
+                ),
+              ),
+              if (badge != null)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0F5298),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    badge,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

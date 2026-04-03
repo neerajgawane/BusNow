@@ -87,8 +87,8 @@ class _LoginScreenState extends State<LoginScreen> {
 }
 
   // ── Dynamic theme based on role ──
-  Color get _primaryColor => _isPassenger ? const Color(0xFF0F5298) : const Color(0xFFE65100);
-  Color get _primaryDark => _isPassenger ? const Color(0xFF003C71) : const Color(0xFFBF360C);
+  Color get _primaryColor => _isPassenger ? const Color(0xFF0F5298) : const Color(0xFF0F5298);
+  Color get _primaryDark => _isPassenger ? const Color(0xFF003C71) : const Color(0xFF003C71);
   Color get _accentBg => _isPassenger ? const Color(0xFFE5EFFF) : const Color(0xFFFFF3E0);
   String get _title => _isPassenger ? 'Passenger' : 'Conductor';
   String get _subtitle => _isPassenger ? 'Track buses & plan your commute' : 'Update crowds & earn rewards';

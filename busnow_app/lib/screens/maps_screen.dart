@@ -332,7 +332,7 @@ class _MapsScreenState extends State<MapsScreen> {
               BottomNavigationBarItem(icon: Icon(Icons.directions_bus), label: 'BUSES'),
               BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'STATS'),
               BottomNavigationBarItem(icon: Icon(Icons.map), label: 'MAP'),
-              BottomNavigationBarItem(icon: Icon(Icons.person), label: 'PROFILE'),
+              // BottomNavigationBarItem(icon: Icon(Icons.person), label: 'PROFILE'),
             ],
           ),
         ),
