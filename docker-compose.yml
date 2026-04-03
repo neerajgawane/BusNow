@@ -1,25 +1,30 @@
 version: '3.8'
+
 services:
   db:
-    image: postgres:16
+    image: postgres:15-alpine
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: busnow
+      POSTGRES_USER: busnow
+      POSTGRES_PASSWORD: busnowpassword
+      POSTGRES_DB: busnow_db
     ports:
       - "5432:5432"
     volumes:
-      - pg_data:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    restart: unless-stopped
 
   backend:
     build: ./backend
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: postgresql://postgres:password@db:5432/busnow
-      JWT_SECRET: busnow_super_secret_2024
+      PORT: 3000
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: busnow
+      DB_PASSWORD: busnowpassword
+      DB_NAME: busnow_db
+      JWT_SECRET: supersecretjwtkey
     depends_on:
       - db
-
-volumes:
-  pg_data:
+    restart: unless-stopped

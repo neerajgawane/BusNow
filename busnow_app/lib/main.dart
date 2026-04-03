@@ -1,29 +1,45 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'core/auth_provider.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/login_screen.dart';
+import 'screens/conductor_home.dart';
+import 'screens/passenger_home.dart';
 
-void main() {
-  runApp(
-    ChangeNotifierProvider(
-      create: (_) => AuthProvider(),
-      child: const BusNowApp(),
-    ),
-  );
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    debugPrint("Firebase not initialized yet. Ensure google-services.json is added in production.");
+  }
+  
+  final prefs = await SharedPreferences.getInstance();
+  final token = prefs.getString('token');
+  final role = prefs.getString('role');
+
+  Widget home = const LoginScreen();
+  if (token != null) {
+      if (role == 'conductor') home = const ConductorHomeScreen();
+      else if (role == 'passenger') home = const PassengerHomeScreen();
+  }
+  
+  runApp(BusNowApp(initialHome: home));
 }
 
 class BusNowApp extends StatelessWidget {
-  const BusNowApp({super.key});
+  final Widget initialHome;
+  const BusNowApp({super.key, required this.initialHome});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'BusNow',
-      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1565C0)),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      home: const LoginScreen(),
+      home: initialHome,
+      debugShowCheckedModeBanner: false,
     );
   }
 }

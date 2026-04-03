@@ -10,8 +10,6 @@ android {
     namespace = "com.example.busnow_app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
-    minSdk = 21
-
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
