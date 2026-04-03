@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import 'conductor_home.dart';
 import 'passenger_home.dart';
@@ -17,211 +18,273 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isPassenger = true;
   bool _obscurePass = true;
   bool _loading = false;
+  String? _error;
 
   void _login() async {
-    setState(() => _loading = true);
+    setState(() { _loading = true; _error = null; });
     final role = _isPassenger ? 'passenger' : 'conductor';
-    final phone = _phoneCtrl.text.isEmpty ? '9876543210' : _phoneCtrl.text;
-    final pass = _passCtrl.text.isEmpty ? (_isPassenger ? 'password' : 'BusNow@Conductor1') : _passCtrl.text;
-    
+    final phone = _phoneCtrl.text.isEmpty
+        ? (_isPassenger ? '9988776655' : '9876543210')
+        : _phoneCtrl.text.trim();
+    final pass = _passCtrl.text.isEmpty
+        ? (_isPassenger ? 'passenger123' : 'conductor123')
+        : _passCtrl.text.trim();
+
     final user = await ApiService.login(phone, pass, role);
     if (!mounted) return;
     setState(() => _loading = false);
-    
+
     if (user != null) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('name', user['name'] ?? '');
+      await prefs.setString('role', role);
+      await prefs.setInt('bus_id', user['bus_id'] ?? 1);
+      await prefs.setInt('route_id', user['route_id'] ?? 1);
+      await prefs.setInt('user_id', user['id'] ?? 0);
+
+      if (!mounted) return;
       if (_isPassenger) {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const PassengerHomeScreen()));
       } else {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ConductorHomeScreen()));
       }
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid Credentials')));
+      setState(() => _error = 'Invalid phone or password');
     }
   }
+
+  // ── Dynamic theme based on role ──
+  Color get _primaryColor => _isPassenger ? const Color(0xFF0F5298) : const Color(0xFFE65100);
+  Color get _primaryDark => _isPassenger ? const Color(0xFF003C71) : const Color(0xFFBF360C);
+  Color get _accentBg => _isPassenger ? const Color(0xFFE5EFFF) : const Color(0xFFFFF3E0);
+  String get _title => _isPassenger ? 'Passenger' : 'Conductor';
+  String get _subtitle => _isPassenger ? 'Track buses & plan your commute' : 'Update crowds & earn rewards';
+  IconData get _icon => _isPassenger ? Icons.person_pin_circle : Icons.badge;
+  String get _hintPhone => _isPassenger ? '9988776655' : '9876543210';
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F2F5),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.only(top: 100, bottom: 60),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFF0F5298), Color(0xFF1D78CD)],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-              ),
+      body: AnimatedContainer(
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [_primaryColor, _primaryDark],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
                 children: [
+                  const SizedBox(height: 32),
+
+                  // ── App Branding ──
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Icon(Icons.directions_bus, size: 28, color: _primaryColor),
+                      ),
+                      const SizedBox(width: 12),
+                      const Text('BusNow', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: -0.5)),
+                    ],
+                  ),
+                  const SizedBox(height: 36),
+
+                  // ── Role Toggle ──
                   Container(
-                    padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: Colors.white.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: const Icon(Icons.directions_bus, size: 48, color: Color(0xFF0F5298)),
+                    padding: const EdgeInsets.all(4),
+                    child: Row(
+                      children: [
+                        _buildRoleTab('Passenger', Icons.person, true),
+                        _buildRoleTab('Conductor', Icons.engineering, false),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 20),
-                  const Text('Urban Velocity', style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: -1.0)),
-                  const SizedBox(height: 8),
-                  const Text('TRANSIT REDEFINED', style: TextStyle(color: Colors.white70, fontSize: 13, letterSpacing: 2.0, fontWeight: FontWeight.w600)),
-                ],
-              ),
-            ),
-            
-            Transform.translate(
-              offset: const Offset(0, -32),
-              child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(topLeft: Radius.circular(32), topRight: Radius.circular(32)),
-                ),
-                padding: const EdgeInsets.all(32.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEBEBF0),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      padding: const EdgeInsets.all(4),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () => setState(() => _isPassenger = true),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                decoration: BoxDecoration(
-                                  color: _isPassenger ? Colors.white : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(12),
-                                  boxShadow: _isPassenger ? [const BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))] : [],
-                                ),
-                                alignment: Alignment.center,
-                                child: Text("I'm a Passenger", style: TextStyle(color: _isPassenger ? const Color(0xFF0F5298) : const Color(0xFF4A4A5A), fontWeight: FontWeight.bold, fontSize: 14)),
-                              ),
-                            ),
+                  const SizedBox(height: 28),
+
+                  // ── Role Icon + Title ──
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    child: Column(
+                      key: ValueKey(_isPassenger),
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.15),
+                            shape: BoxShape.circle,
                           ),
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () => setState(() => _isPassenger = false),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                decoration: BoxDecoration(
-                                  color: !_isPassenger ? Colors.white : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(12),
-                                  boxShadow: !_isPassenger ? [const BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))] : [],
-                                ),
-                                alignment: Alignment.center,
-                                child: Text("I'm a Conductor", style: TextStyle(color: !_isPassenger ? const Color(0xFF0F5298) : const Color(0xFF4A4A5A), fontWeight: FontWeight.bold, fontSize: 14)),
-                              ),
+                          child: Icon(_icon, size: 48, color: Colors.white),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(_title, style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 6),
+                        Text(_subtitle, style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 14)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+
+                  // ── Login Card ──
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 20, offset: const Offset(0, 8))],
+                    ),
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text('PHONE NUMBER', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _primaryColor, letterSpacing: 0.5)),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: _phoneCtrl,
+                          keyboardType: TextInputType.phone,
+                          decoration: InputDecoration(
+                            hintText: _hintPhone,
+                            hintStyle: const TextStyle(color: Color(0xFFA0A0B0)),
+                            prefixIcon: Icon(Icons.phone, color: _primaryColor.withOpacity(0.5)),
+                            filled: true,
+                            fillColor: _accentBg,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                            contentPadding: const EdgeInsets.symmetric(vertical: 18),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        Text('PASSWORD', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _primaryColor, letterSpacing: 0.5)),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: _passCtrl,
+                          obscureText: _obscurePass,
+                          decoration: InputDecoration(
+                            hintText: '••••••••',
+                            hintStyle: const TextStyle(color: Color(0xFFA0A0B0)),
+                            prefixIcon: Icon(Icons.lock, color: _primaryColor.withOpacity(0.5)),
+                            suffixIcon: IconButton(
+                              icon: Icon(_obscurePass ? Icons.visibility : Icons.visibility_off, color: const Color(0xFF8E8E9F)),
+                              onPressed: () => setState(() => _obscurePass = !_obscurePass),
+                            ),
+                            filled: true,
+                            fillColor: _accentBg,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                            contentPadding: const EdgeInsets.symmetric(vertical: 18),
+                          ),
+                        ),
+
+                        if (_error != null) ...[
+                          const SizedBox(height: 14),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(color: const Color(0xFFFFE5E5), borderRadius: BorderRadius.circular(12)),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.error_outline, color: Color(0xFFD32F2F), size: 18),
+                                const SizedBox(width: 8),
+                                Expanded(child: Text(_error!, style: const TextStyle(color: Color(0xFFD32F2F), fontSize: 13))),
+                              ],
                             ),
                           ),
                         ],
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    
-                    const Text('PHONE NUMBER', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4A4A5A), letterSpacing: 0.5)),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _phoneCtrl,
-                      keyboardType: TextInputType.phone,
-                      decoration: InputDecoration(
-                        hintText: '+91 98765 43210',
-                        hintStyle: const TextStyle(color: Color(0xFFA0A0B0)),
-                        prefixIcon: const Icon(Icons.phone, color: Color(0xFF8E8E9F)),
-                        filled: true,
-                        fillColor: const Color(0xFFF3F4F8),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 20),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    
-                    const Text('PASSWORD', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4A4A5A), letterSpacing: 0.5)),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _passCtrl,
-                      obscureText: _obscurePass,
-                      decoration: InputDecoration(
-                        hintText: '••••••••',
-                        hintStyle: const TextStyle(color: Color(0xFFA0A0B0)),
-                        prefixIcon: const Icon(Icons.lock, color: Color(0xFF8E8E9F)),
-                        suffixIcon: IconButton(
-                          icon: Icon(_obscurePass ? Icons.visibility : Icons.visibility_off, color: const Color(0xFF8E8E9F)),
-                          onPressed: () => setState(() => _obscurePass = !_obscurePass),
-                        ),
-                        filled: true,
-                        fillColor: const Color(0xFFF3F4F8),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 20),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () {},
-                        child: const Text('Forgot Access?', style: TextStyle(color: Color(0xFF0F5298), fontWeight: FontWeight.bold, fontSize: 13)),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    ElevatedButton(
-                      onPressed: _loading ? null : _login,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF005AB3),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        padding: const EdgeInsets.symmetric(vertical: 20),
-                        elevation: 4,
-                        shadowColor: const Color(0xFF005AB3).withOpacity(0.4),
-                      ),
-                      child: _loading 
-                          ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : const Text('Login', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-                    ),
-                    const SizedBox(height: 32),
-                    
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text('New here? ', style: TextStyle(color: Color(0xFF6B7280), fontSize: 14)),
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterScreen()));
-                          },
-                          child: const Text('Register', style: TextStyle(color: Color(0xFF005AB3), fontWeight: FontWeight.bold, fontSize: 14)),
+
+                        const SizedBox(height: 24),
+                        ElevatedButton(
+                          onPressed: _loading ? null : _login,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _primaryColor,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            padding: const EdgeInsets.symmetric(vertical: 18),
+                            elevation: 4,
+                            shadowColor: _primaryColor.withOpacity(0.4),
+                          ),
+                          child: _loading
+                              ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                              : Text('Login as $_title', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white)),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 48),
-                    
-                    const Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Text('HELP', style: TextStyle(fontSize: 10, color: Color(0xFFA0A0B0), fontWeight: FontWeight.bold)),
-                            SizedBox(width: 24),
-                            Text('PRIVACY', style: TextStyle(fontSize: 10, color: Color(0xFFA0A0B0), fontWeight: FontWeight.bold)),
-                          ],
-                        ),
-                        Text('V2.4.0-KINETIC', style: TextStyle(fontSize: 10, color: Color(0xFFA0A0B0), fontWeight: FontWeight.bold)),
-                      ],
+                  ),
+                  const SizedBox(height: 24),
+
+                  // ── Register Link ──
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text('New here? ', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 14)),
+                      GestureDetector(
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterScreen())),
+                        child: const Text('Create Account', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14, decoration: TextDecoration.underline)),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+                  // Quick hint for demo
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  ],
-                ),
+                    child: Text(
+                      'Leave fields empty for demo login',
+                      style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                ],
               ),
             ),
-          ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRoleTab(String label, IconData icon, bool isPassengerTab) {
+    final isSelected = _isPassenger == isPassengerTab;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _isPassenger = isPassengerTab),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: isSelected ? [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, 2))] : [],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: isSelected ? _primaryColor : Colors.white70),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? (isPassengerTab ? const Color(0xFF0F5298) : const Color(0xFFE65100)) : Colors.white70,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

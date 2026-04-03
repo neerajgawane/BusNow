@@ -2,11 +2,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../services/socket_service.dart';
 import '../utils/constants.dart';
 import 'conductor_stats_screen.dart';
 import 'maps_screen.dart';
+import 'login_screen.dart';
 
 class ConductorHomeScreen extends StatefulWidget {
   const ConductorHomeScreen({super.key});
@@ -16,19 +18,32 @@ class ConductorHomeScreen extends StatefulWidget {
 }
 
 class _ConductorHomeScreenState extends State<ConductorHomeScreen> {
-  int xp = 2450;
-  String rank = 'Transit Pro';
-  int routeXp = 120;
-  int busId = 1; // From seed data
+  int xp = 0;
+  String rank = 'Rookie Reporter';
+  int routeXp = 0;
+  int busId = 1;
+  String conductorName = 'Conductor';
   String _selectedCrowd = 'moderate'; 
   Timer? _gpsTimer;
+  DateTime? _lastUpdated;
 
   @override
   void initState() {
     super.initState();
     SocketService.connect();
+    _loadUserData();
     _loadStats();
     _initGPS();
+  }
+
+  Future<void> _loadUserData() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        busId = prefs.getInt('bus_id') ?? 1;
+        conductorName = prefs.getString('name') ?? 'Conductor';
+      });
+    }
   }
 
   Future<void> _loadStats() async {
@@ -43,6 +58,7 @@ class _ConductorHomeScreenState extends State<ConductorHomeScreen> {
           setState(() {
             xp = data['xp'] ?? xp;
             rank = data['rank'] ?? rank;
+            routeXp = data['xp'] ?? routeXp;
           });
         }
       }
@@ -108,12 +124,18 @@ class _ConductorHomeScreenState extends State<ConductorHomeScreen> {
         },
         body: jsonEncode(body),
       );
-      _loadStats(); // Update XP purely internally as well
+      _loadStats();
       if(mounted) {
          setState(() {
-           routeXp += 10; // visually update
+           routeXp += 10;
+           _lastUpdated = DateTime.now();
          });
-         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Crowd safely updated! (+10 XP)')));
+         ScaffoldMessenger.of(context).showSnackBar(
+           const SnackBar(
+             content: Text('✅ Crowd safely updated! (+10 XP)'),
+             backgroundColor: Color(0xFF28A745),
+           ),
+         );
       }
     } catch (e) { debugPrint(e.toString()); }
   }
@@ -121,12 +143,64 @@ class _ConductorHomeScreenState extends State<ConductorHomeScreen> {
   int _currentIndex = 0;
 
   void _onNavTap(int index) {
+    if (index == _currentIndex) return;
     if (index == 1) {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => const ConductorStatsScreen()));
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ConductorStatsScreen()));
     } else if (index == 2) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => const MapsScreen()));
+    } else if (index == 3) {
+      _showProfileSheet();
     }
-    // Profile is 3, but we might not have a profile screen
+  }
+
+  void _showProfileSheet() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(radius: 32, backgroundColor: const Color(0xFFE5EFFF), child: Text(conductorName[0].toUpperCase(), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF0F5298)))),
+            const SizedBox(height: 16),
+            Text(conductorName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const Text('CONDUCTOR', style: TextStyle(fontSize: 12, color: Color(0xFF8E8E9F), letterSpacing: 1)),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.logout, color: Colors.white),
+                label: const Text('Logout', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFD32F2F),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                onPressed: () async {
+                  await prefs.clear();
+                  if (mounted) {
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      (route) => false,
+                    );
+                  }
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getTimeAgo(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inSeconds < 60) return 'JUST NOW';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} MIN${diff.inMinutes > 1 ? 'S' : ''} AGO';
+    return '${diff.inHours} HR${diff.inHours > 1 ? 'S' : ''} AGO';
   }
 
   @override
@@ -149,8 +223,8 @@ class _ConductorHomeScreenState extends State<ConductorHomeScreen> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Bus 21C', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF14142B))),
-                          Text('ADYAR → T. NAGAR', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.grey.shade600, letterSpacing: 0.5)),
+                          Text('Bus ${busId == 1 ? "330" : "451"}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF14142B))),
+                          Text('DADAR → ANDHERI', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.grey.shade600, letterSpacing: 0.5)),
                         ],
                       ),
                     ],
@@ -196,13 +270,18 @@ class _ConductorHomeScreenState extends State<ConductorHomeScreen> {
                     _buildOptionCard('overcrowded', 'Overcrowded', 'More than 90% full', Icons.warning_amber_rounded, const Color(0xFFFFE5E5), const Color(0xFFE02020)),
                     
                     const SizedBox(height: 32),
-                    const Center(
+                    Center(
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.history, size: 16, color: Color(0xFF666666)),
-                          SizedBox(width: 6),
-                          Text('LAST UPDATED: 2 MINS AGO', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF666666), letterSpacing: 0.5)),
+                          const Icon(Icons.history, size: 16, color: Color(0xFF666666)),
+                          const SizedBox(width: 6),
+                          Text(
+                            _lastUpdated != null
+                              ? 'LAST UPDATED: ${_getTimeAgo(_lastUpdated!)}'
+                              : 'NO UPDATES YET',
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF666666), letterSpacing: 0.5),
+                          ),
                         ],
                       ),
                     ),

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/login_screen.dart';
 import 'screens/conductor_home.dart';
@@ -7,11 +6,6 @@ import 'screens/passenger_home.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  try {
-    await Firebase.initializeApp();
-  } catch (e) {
-    debugPrint("Firebase not initialized yet. Ensure google-services.json is added in production.");
-  }
   
   final prefs = await SharedPreferences.getInstance();
   final token = prefs.getString('token');

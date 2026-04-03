@@ -1,6 +1,8 @@
 CREATE TYPE crowd_level_enum AS ENUM ('empty', 'moderate', 'full', 'overcrowded');
 CREATE TYPE user_role_enum AS ENUM ('conductor', 'passenger');
 
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
@@ -41,19 +43,61 @@ CREATE TABLE IF NOT EXISTS crowd_logs (
   timestamp TIMESTAMP DEFAULT NOW()
 );
 
--- Seed route
+-- ===== SEED DATA =====
+
+-- Route 1: Mumbai - Dadar to Andheri (real bus corridor)
 INSERT INTO routes (route_number, route_name, stops) VALUES (
-  '21C',
-  'Adyar to T. Nagar',
+  '330',
+  'Dadar to Andheri',
   '[
-    {"stop_id": 1, "name": "Adyar Signal",      "lat": 13.0012, "lng": 80.2565},
-    {"stop_id": 2, "name": "Kotturpuram",        "lat": 13.0137, "lng": 80.2456},
-    {"stop_id": 3, "name": "Saidapet",           "lat": 13.0196, "lng": 80.2213},
-    {"stop_id": 4, "name": "T. Nagar Bus Stand", "lat": 13.0358, "lng": 80.2338}
+    {"stop_id": 1, "name": "Dadar Station",     "lat": 19.0178, "lng": 72.8478},
+    {"stop_id": 2, "name": "Mahim Junction",    "lat": 19.0368, "lng": 72.8397},
+    {"stop_id": 3, "name": "Bandra Bus Depot",  "lat": 19.0544, "lng": 72.8403},
+    {"stop_id": 4, "name": "Khar Station",      "lat": 19.0726, "lng": 72.8369},
+    {"stop_id": 5, "name": "Andheri Station",   "lat": 19.1197, "lng": 72.8464}
   ]'
 ) ON CONFLICT DO NOTHING;
 
--- Seed bus
+-- Route 2: Mumbai - Borivali to Churchgate
+INSERT INTO routes (route_number, route_name, stops) VALUES (
+  '451',
+  'Borivali to Churchgate',
+  '[
+    {"stop_id": 1, "name": "Borivali Station",   "lat": 19.2295, "lng": 72.8568},
+    {"stop_id": 2, "name": "Kandivali Station",  "lat": 19.2048, "lng": 72.8524},
+    {"stop_id": 3, "name": "Goregaon Station",   "lat": 19.1663, "lng": 72.8494},
+    {"stop_id": 4, "name": "Andheri Station",    "lat": 19.1197, "lng": 72.8464},
+    {"stop_id": 5, "name": "Dadar Station",      "lat": 19.0178, "lng": 72.8478}
+  ]'
+) ON CONFLICT DO NOTHING;
+
+-- Pre-seed Bus 330 (on route 1, starting at Dadar)
 INSERT INTO buses (bus_number, route_id, current_lat, current_lng, crowd_level)
-VALUES ('BUS-21C-01', 1, 13.0012, 80.2565, 'empty')
+VALUES ('MH-330-5501', 1, 19.0178, 72.8478, 'empty')
 ON CONFLICT DO NOTHING;
+
+-- Pre-seed Bus 451 (on route 2, starting at Borivali)  
+INSERT INTO buses (bus_number, route_id, current_lat, current_lng, crowd_level)
+VALUES ('MH-451-7702', 2, 19.2295, 72.8568, 'moderate')
+ON CONFLICT DO NOTHING;
+
+-- Seed conductor: Conductor Raj (phone: 9876543210, password: conductor123)
+-- bcrypt hash of 'conductor123' with 10 rounds
+INSERT INTO users (name, phone, role, bus_id, route_id, password_hash, xp) VALUES (
+  'Conductor Raj',
+  '9876543210',
+  'conductor',
+  1,
+  1,
+  '$2a$10$BuSSrCskNoICIj4cJ.WRMO/Ooa0iC2RjOncWsWtBL8C1WADoH.ZEO',
+  120
+) ON CONFLICT (phone) DO NOTHING;
+
+-- Seed passenger: Passenger Anil (phone: 9988776655, password: passenger123)  
+INSERT INTO users (name, phone, role, password_hash, xp) VALUES (
+  'Passenger Anil',
+  '9988776655',
+  'passenger',
+  '$2a$10$k3NXDOnAmgDlJbAcj.88jeCRfNU91xutGQB4iRjmVSJvsi7F3fTli',
+  50
+) ON CONFLICT (phone) DO NOTHING;

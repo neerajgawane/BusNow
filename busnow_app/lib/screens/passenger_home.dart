@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import '../services/socket_service.dart';
+import '../utils/constants.dart';
 import 'maps_screen.dart';
+import 'login_screen.dart';
 
 class PassengerHomeScreen extends StatefulWidget {
   const PassengerHomeScreen({super.key});
@@ -12,18 +17,15 @@ class PassengerHomeScreen extends StatefulWidget {
 class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
   int _selectedStop = 1;
   int _currentIndex = 0;
-  List<dynamic> incomingBuses = [
-    // Mock data for preview matching UI since socket might be slow
-    {'route': '21C', 'eta_minutes': 4, 'crowd_level': 'empty'},
-    {'route': 'M70', 'eta_minutes': 12, 'crowd_level': 'moderate'},
-    {'route': '19B', 'eta_minutes': 1, 'crowd_level': 'overcrowded'},
-  ];
+  bool _loading = true;
+  List<dynamic> incomingBuses = [];
 
   final List<Map<String, dynamic>> _stops = [
-    {"stop_id": 1, "name": "Adyar Signal"},
-    {"stop_id": 2, "name": "Kotturpuram"},
-    {"stop_id": 3, "name": "Saidapet"},
-    {"stop_id": 4, "name": "T. Nagar"},
+    {"stop_id": 1, "name": "Dadar Station"},
+    {"stop_id": 2, "name": "Mahim Junction"},
+    {"stop_id": 3, "name": "Bandra Bus Depot"},
+    {"stop_id": 4, "name": "Khar Station"},
+    {"stop_id": 5, "name": "Andheri Station"},
   ];
 
   @override
@@ -32,10 +34,16 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
     SocketService.connect();
     
     SocketService.on('stop:incoming_buses', (data) {
-      if(mounted && data.isNotEmpty) setState(() => incomingBuses = data);
+      if(mounted && data is List && data.isNotEmpty) {
+        setState(() {
+          incomingBuses = data;
+          _loading = false;
+        });
+      }
     });
     
     SocketService.on('bus:crowd_update', (data) {
+       _fetchBusesRest(_selectedStop);
        _subscribeToStop(_selectedStop);
     });
     
@@ -44,18 +52,82 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
     });
 
     _subscribeToStop(_selectedStop);
+    _fetchBusesRest(_selectedStop);
   }
 
   void _subscribeToStop(int stopId) {
     SocketService.emit('stop:subscribe', {'stop_id': stopId});
   }
 
-  void _onNavTap(int index) {
-    if (index == 1) {
-      // Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const PassengerStatsScreen()));
-    } else if (index == 2) {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const MapsScreen()));
+  Future<void> _fetchBusesRest(int stopId) async {
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/stops/$stopId/buses'));
+      if (res.statusCode == 200 && mounted) {
+        final data = jsonDecode(res.body);
+        if (data is List) {
+          setState(() {
+            incomingBuses = data;
+            _loading = false;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint(e.toString());
+      if (mounted) setState(() => _loading = false);
     }
+  }
+
+  void _onNavTap(int index) {
+    if (index == _currentIndex) return;
+    if (index == 1) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const MapsScreen()));
+    } else if (index == 3) {
+      _showProfileSheet();
+    }
+  }
+
+  void _showProfileSheet() async {
+    final prefs = await SharedPreferences.getInstance();
+    final name = prefs.getString('name') ?? 'Passenger';
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(radius: 32, backgroundColor: const Color(0xFFE5EFFF), child: Text(name[0].toUpperCase(), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF0F5298)))),
+            const SizedBox(height: 16),
+            Text(name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const Text('PASSENGER', style: TextStyle(fontSize: 12, color: Color(0xFF8E8E9F), letterSpacing: 1)),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.logout, color: Colors.white),
+                label: const Text('Logout', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFD32F2F),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                onPressed: () async {
+                  await prefs.clear();
+                  if (mounted) {
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      (route) => false,
+                    );
+                  }
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Color _getCrowdBgColor(String level) {
@@ -193,7 +265,18 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
             const SizedBox(height: 16),
             
             // Bus List
-            ...incomingBuses.map((bus) => _buildBusCard(bus)).toList(),
+            if (_loading)
+              const Padding(
+                padding: EdgeInsets.all(32),
+                child: Center(child: CircularProgressIndicator(color: Color(0xFF0F5298))),
+              )
+            else if (incomingBuses.isEmpty)
+              const Padding(
+                padding: EdgeInsets.all(32),
+                child: Center(child: Text('No buses currently on this route.', style: TextStyle(fontSize: 16, color: Color(0xFF8E8E9F)))),
+              )
+            else
+              ...incomingBuses.map((bus) => _buildBusCard(bus)).toList(),
             const SizedBox(height: 32),
           ],
         ),
@@ -218,7 +301,7 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
             items: const [
               BottomNavigationBarItem(icon: Icon(Icons.directions_bus), label: 'BUSES'),
               BottomNavigationBarItem(icon: Icon(Icons.map), label: 'MAP'),
-              BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'STATS'),
+              BottomNavigationBarItem(icon: Icon(Icons.notifications), label: 'ALERTS'),
               BottomNavigationBarItem(icon: Icon(Icons.person), label: 'PROFILE'),
             ],
           ),
@@ -236,24 +319,39 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
     Color crowdBgColor = _getCrowdBgColor(crowd);
     Color crowdTextColor = _getCrowdTextColor(crowd);
     
-    // Status block
+    // Recommendation
     Widget statusWidget;
-    if (crowd == 'overcrowded') {
-      statusWidget = const Row(
-        crossAxisAlignment: CrossAxisAlignment.center, // Make row items vertically centered
-        children: [
-          Icon(Icons.warning, color: Color(0xFFD32F2F), size: 16),
-          SizedBox(width: 8),
-        ],
+    if (crowd == 'overcrowded' || crowd == 'full') {
+      statusWidget = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFE5E5),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.warning, color: Color(0xFFD32F2F), size: 16),
+            SizedBox(width: 8),
+            Text('Wait for next bus', style: TextStyle(color: Color(0xFFD32F2F), fontWeight: FontWeight.bold, fontSize: 13)),
+          ],
+        ),
       );
     } else {
-      statusWidget = const Row(
-        crossAxisAlignment: CrossAxisAlignment.center, // Make row items vertically centered
-        children: [
-          Icon(Icons.check_circle, color: Color(0xFF008A3D), size: 16),
-          SizedBox(width: 6),
-          Text('Board this bus', style: TextStyle(color: Color(0xFF008A3D), fontWeight: FontWeight.bold, fontSize: 14)),
-        ],
+      statusWidget = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFDDF5E6),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.check_circle, color: Color(0xFF008A3D), size: 16),
+            SizedBox(width: 6),
+            Text('Board this bus', style: TextStyle(color: Color(0xFF008A3D), fontWeight: FontWeight.bold, fontSize: 13)),
+          ],
+        ),
       );
     }
 
@@ -310,13 +408,16 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
             ],
           ),
         ),
-        if (crowd != 'overcrowded')
+        if (crowd == 'overcrowded' || crowd == 'full')
           Padding(
             padding: const EdgeInsets.only(left: 8, top: 12, bottom: 24),
             child: statusWidget,
           )
         else
-          const SizedBox(height: 24),
+          Padding(
+            padding: const EdgeInsets.only(left: 8, top: 12, bottom: 24),
+            child: statusWidget,
+          ),
       ],
     );
   }

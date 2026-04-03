@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-const String baseUrl = 'http://10.0.2.2:3000/api'; // Android emulator localhost target
-const String socketUrl = 'http://10.0.2.2:3000';
+const String baseUrl = 'http://localhost:3000/api'; // Works for Chrome + mobile (via adb reverse)
+const String socketUrl = 'http://localhost:3000';
 
 class AppColors {
   static const Color empty = Color(0xFF4CAF50); // Green
